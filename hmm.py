@@ -149,15 +149,15 @@ def eliminate_hidden_vars(states, obs):
 		for j in range(len(states)):
 			if states[i][j] != 0:
 				[d1,d2,d3,d4] = eucl_dist(np.array((i,j)))
-				range1 =  np.arange(0.7*d1, 1.3*d1, 0.1)
-				range2 =  np.arange(0.7*d2, 1.3*d2, 0.1)
-				range3 =  np.arange(0.7*d3, 1.3*d3, 0.1)
-				range4 =  np.arange(0.7*d4, 1.3*d4, 0.1)
+				range1 =  np.around(np.arange(0.7*d1, 1.3*d1, 0.1), decimals=1)
+				range2 =  np.around(np.arange(0.7*d2, 1.3*d2, 0.1), decimals=1)
+				range3 =  np.around(np.arange(0.7*d3, 1.3*d3, 0.1), decimals=1)
+				range4 =  np.around(np.arange(0.7*d4, 1.3*d4, 0.1), decimals=1)
 
 				#eliminate states based on noisy distances to towers
 				val = str(i)+str(j)
 				for row in range(11):
-					if 0.7*d1 <= obs[row][0] <= 1.3*d1 and 0.7*d2 <= obs[row][1] <= 1.3*d2 and 0.7*d3 <= obs[row][2] <= 1.3*d3 and 0.7*d4 <= obs[row][3] <= 1.3*d4:
+					if obs[row][0] in range1 and obs[row][1] in range2 and obs[row][2] in range3 and obs[row][3] in range4:
 						hidden_variables[row].append(val)
 			else:
 				range1 =  np.array([])
