@@ -9,12 +9,16 @@ from scipy.spatial import distance
 import collections
 
 # ==============Hidden Markov Models using Viterbi Algorithm==================================
-#Your task is to use a Hidden Markov Model to figure out the most likely trajectory of a robot in this
-#grid-world. Assume that the initial position of the robot has a uniform prior over all free cells. In each
-#time-step, the robot moves to one of its four neighboring free cells chosen uniformly at random.
+#Variable elimination algorithm on Hidden Markov Model i.e. Viterbi Algorithm
+#Output: the most likely trajectory of a robot in a 10x10 grid
+#Robot has a uniform prior probability over all free cells. 
 
-#Parse the data 
+#Global Variable
 trans_p = collections.OrderedDict({})
+
+#Parse data into possible states, observations
+#Constructs transition probabilities. Eliminates hidden variables based on observations
+#Runs viterbi to find most likely trajectory in 11 time steps
 def main():
 	states = []
 	obs = []
@@ -30,21 +34,51 @@ def main():
 		obs = [np.array(map(float,line.split())) for line in f.readlines()[24:35]]
 	obs = np.array(obs)
 	
+	#constructs prior probabilities, transition probabilities, emition probabilities
+	#eliminates hidden variables based on observations
 	[start_p,emit_p,hidden_variables] = initialize(states, obs)
 
-	obs_towers = ['t1','t2','t3','t4']
+	#outputs most likely trajectory
+	path = viterbi(hidden_variables, start_p, trans_p)
 
-	viterbi(obs_towers, hidden_variables, start_p, trans_p, emit_p)
-	print hidden_variables
+	display(path)
 
-def viterbi(obs, states, start_p, trans_p, emit_p):
-	V = [{}]
+def display(probable_path):
+	path = ""
+	for point in probable_path:
+		path += "(" + str(int(point)/10) + "," + str(int(point)%10) + ")" + "->"
 
+	path = path[:-2] #deleting the last arrow
+	print "The most likely trajectory of the robot for 11 time-steps:\n", path
+
+#Uses the prior probabilities(start_p), coordinates(states), transition probabilities(trans_p) to go from 
+#one state (t) to another.
+#find the coordinate having maximum probability
+#follow the prev pointers from that max probability coordinate until reached the timestep 1.
+#path is formed by following the pointers
+def viterbi(states, start_p, trans_p):
+	#array of dictionaries to store probabilities.
+	#will have 11 dictionaries for each timestep (actual states)
+	#last dictionary will have the maximum probability
+	#each dictionary has all hidden variables (coordinates) as keys
+	#each coordinate has attributes, probability and prev pointer.
+	#prev pointer has the coordinate from which we arrived to current coordinate
+	V = [{}] 
+
+	#initialze first timestep/first state X1, with prior probabilities
+	#assign prior probability to each coordinate.
+	#as first timestep so no prev pointer
 	for point in states[0]:
 		V[0][point] = {"prob": start_p[point], "prev": None}
 
+	#runs for 10 timesteps
 	for t in range(1, 11):
 		V.append({})
+		#get probabilities of coordinates of current state by product of point's transition probability
+		#and probability of that point in prev state
+		#save pointer prev to the coordinate we came from
+		#if we already calculated that point's probability than calculate again and save the max of two
+		#also update the prev pointer to the max probability's prev coordinate
 		for st in states[t-1]:
 			if st in trans_p[st]:
 				for state in trans_p[st]:
@@ -58,6 +92,7 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 								V[t][state]["prob"] = V[t-1][st]["prob"]*trans_p[state][st]
 								V[t][state]["prev"] = st
 
+	#find the max probability coordinate which should be in last timestep
 	max_point = ''
 	max_prob = -1
 	for point in V[10]:
@@ -65,19 +100,15 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
 			max_prob = V[10][point]["prob"]
 			max_point = point
 
+	#follow the prev pointer from max_point till the last timestep
 	probable_path = []
 	probable_path.append(max_point)
 	for i in range(10,0,-1):
 		max_point = V[i][max_point]["prev"]
 		probable_path.insert(0, max_point)
 
-	path = ""
-	for point in probable_path:
-		path += "(" + str(int(point)/10) + "," + str(int(point)%10) + ")" + "->"
-
-	path = path[:-2]
-	print "The most likely trajectory of the robot for 11 time-steps:\n", path
-
+	return probable_path
+	
 def initialize(states, obs):
 	start_p = {}
 	emit_p = {}
@@ -89,15 +120,21 @@ def initialize(states, obs):
 			if key not in start_p:
 				#Create start_p
 				if(states[i][j] == 1):
-					start_p[str(i)+str(j)] = 1.0/87.0
+					start_p[str(i)+str(j)] = 1.0/87.0 #has uniform probability, free cells are 87
 				else:
 					start_p[str(i)+str(j)] = 0.0
-	
-	[emit_p, hidden_variables] = create_emit_p(states, obs)
+
+	#eliminate hidden variables based on initial observations given in txt file
+	[emit_p, hidden_variables] = eliminate_hidden_vars(states, obs)
 
 	return [start_p,emit_p,hidden_variables]
 
-def create_emit_p(states, obs):
+#calculates euclidean distance of each coordinate from all 4 towers
+#find the noisy range from each tower
+#if initial observations are in those calculated range than keep those coordinate
+#otherwise eliminate it as it is not in the initial noisy distances from towers
+#observations decreases the hidden variables
+def eliminate_hidden_vars(states, obs):
 	emit_p = {}
 	hidden_variables = {}
 	d1 = 0.0
@@ -107,10 +144,9 @@ def create_emit_p(states, obs):
 
 	for init in range(11):
 		hidden_variables[init] = []
-
+	#calculation of range formula: 0.7d..1.3d
 	for i in range(len(states)):
 		for j in range(len(states)):
-			# print hidden_variables
 			if states[i][j] != 0:
 				[d1,d2,d3,d4] = eucl_dist(np.array((i,j)))
 				range1 =  np.arange(0.7*d1, 1.3*d1, 0.1)
@@ -214,6 +250,5 @@ def neighbors(i, j, world):
 	if(down):
 		trans_p[key][str(i+1) + str(j)] = (float(1.0/total))
 	
-	print trans_p['00']
 if __name__ == "__main__":
 	main()
